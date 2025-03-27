@@ -1,25 +1,26 @@
 #!/usr/bin/env python
-# CollectD MySQL plugin, designed for MySQL 5.5+ (specifically Percona Server)
+# CollectD MariaDB plugin, designed for MariaDB 10.6+
 #
-# Pulls most of the same metrics as the Percona Monitoring Plugins for Cacti,
-# however is designed to be used on newer versions of MySQL and as such drops
-# all of the legacy compatibility, and favors metrics from SHOW GLOBAL STATUS
-# as opposed to SHOW ENGINE INNODB STATUS where possible.
+# Forked from the CollectD MySQL Plugin.
+# Uses the MariaDB Connector/Python, pulls the same metrics as before
+# as well as some newer additions which MariaDB includes including
+# MariaDB Enterprise Server, Userstat, Columnstore, Galera, Multi-Source
+# replication, and more.
+# This has also been renamed to mariadb so it does not conflict.
 #
 # Configuration:
-#  Import mysql
-#  <Module mysql>
+#  Import mariadb
+#  <Module mariadb>
 #  	Host localhost
 #  	Port 3306 (optional)
 #  	User root
 #  	Password xxxx
-#  	HeartbeatTable percona.heartbeat (optional, if using pt-heartbeat)
 #   Verbose true (optional, to enable debugging)
 #  </Module>
 #
-# Requires "MySQLdb" for Python
+# Requires "mariadb" for Python
 #
-# Author: Chris Boulton <chris@chrisboulton.com>
+# Authors: Chris Boulton <chris@chrisboulton.com>, Richard Bensley <richard.bensley@mariadb.com>
 # License: MIT (http://www.opensource.org/licenses/mit-license.php)
 #
 
@@ -33,14 +34,13 @@ except ImportError:
 	# accordingly for testing/development.
 	COLLECTD_ENABLED=False
 import re
-import MySQLdb
+import mariadb
 
 MYSQL_CONFIG = {
 	'Host':           'localhost',
 	'Port':           3306,
 	'User':           'root',
 	'Password':       '',
-	'HeartbeatTable': '',
 	'Verbose':        False,
 }
 
@@ -330,7 +330,7 @@ MYSQL_INNODB_STATUS_MATCHES = {
 }
 
 def get_mysql_conn():
-	return MySQLdb.connect(
+	return mariadb.connect(
 		host=MYSQL_CONFIG['Host'],
 		port=MYSQL_CONFIG['Port'],
 		user=MYSQL_CONFIG['User'],
@@ -338,7 +338,7 @@ def get_mysql_conn():
 	)
 
 def mysql_query(conn, query):
-	cur = conn.cursor(MySQLdb.cursors.DictCursor)
+	cur = conn.cursor(mariadb.cursors.DictCursor)
 	cur.execute(query)
 	return cur
 
@@ -363,7 +363,7 @@ def fetch_mysql_status(conn):
 def fetch_mysql_master_stats(conn):
 	try:
 		result = mysql_query(conn, 'SHOW BINARY LOGS')
-	except MySQLdb.OperationalError:
+	except mariadb.OperationalError:
 		return {}
 
 	stats = {
@@ -435,7 +435,7 @@ def fetch_mysql_response_times(conn):
 			WHERE `time` != 'TOO LONG'
 			ORDER BY `time`
 		""")
-	except MySQLdb.OperationalError:
+	except mariadb.OperationalError:
 		return {}
 
 	for i in range(1, 14):
@@ -595,3 +595,17 @@ if __name__ == "__main__" and not COLLECTD_ENABLED:
 
 
 # vim:noexpandtab ts=8 sw=8 sts=8
+error: cannot format -: Cannot parse: 586:7: 	print "Running in test mode, invoke with"
+error: cannot format -: Cannot parse: 587:7: 	print "Running in test mode, invoke with"
+error: cannot format -: Cannot parse: 587:7: 	print "Running in test mode, invoke with"
+error: cannot format -: Cannot parse: 586:7: 	print "Running in test mode, invoke with"
+error: cannot format -: Cannot parse: 586:7: 	print "Running in test mode, invoke with"
+error: cannot format -: Cannot parse: 586:7: 	print "Running in test mode, invoke with"
+error: cannot format -: Cannot parse: 586:7: 	print "Running in test mode, invoke with"
+error: cannot format -: Cannot parse: 585:7: 	print "Running in test mode, invoke with"
+error: cannot format -: Cannot parse: 585:7: 	print "Running in test mode, invoke with"
+error: cannot format -: Cannot parse: 585:7: 	print "Running in test mode, invoke with"
+error: cannot format -: Cannot parse: 585:7: 	print "Running in test mode, invoke with"
+error: cannot format -: Cannot parse: 585:7: 	print "Running in test mode, invoke with"
+error: cannot format -: Cannot parse: 585:7: 	print "Running in test mode, invoke with"
+error: cannot format -: Cannot parse: 585:7: 	print "Running in test mode, invoke with"
