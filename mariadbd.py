@@ -32,10 +32,12 @@ import mariadb
 
 OPTION_FILE = "Option_File"
 OPTION_GROUP = "Option_Group"
+OPTION_FILE_PATH = "~/.my.cnf"
+OPTION_FILE_GROUP = "client"
 
 MARIADB_CONFIG = {
-    OPTION_FILE: "~/.my.cnf",
-    OPTION_GROUP: "client",
+    OPTION_FILE: OPTION_FILE_PATH,
+    OPTION_GROUP: OPTION_FILE_GROUP,
     "Verbose": False,
 }
 
@@ -612,18 +614,28 @@ def read_callback():
             continue
         dispatch_value("innodb", key, innodb_status[key], MYSQL_INNODB_STATUS_VARS[key])
 
+
 if COLLECTD_ENABLED:
     collectd.register_read(read_callback)
     collectd.register_config(configure_callback)
 
 if __name__ == "__main__" and not COLLECTD_ENABLED:
     parser = argparse.ArgumentParser()
-    parser.add_argument("file",help="Path to MariaDB client option file")
-    parser.add_argument("group", help="Group name to read from in MariaDB client option file")
-    parser.add_argument("-d","--debug",action="store_true", default=False)
+    parser.add_argument(
+        "-f", "--option-file",
+        help="Path to MariaDB client option file",
+        default=OPTION_FILE_PATH,
+    )
+    parser.add_argument(
+        "-g",
+        "--option-group",
+        help="Group name in the MariaDB client option file",
+        default=OPTION_FILE_GROUP,
+    )
+    parser.add_argument("-d", "--debug", action="store_true", default=False)
     args = parser.parse_args()
-    MARIADB_CONFIG[OPTION_FILE] = args.file
-    MARIADB_CONFIG[OPTION_GROUP] = args.group
+    MARIADB_CONFIG[OPTION_FILE] = args.option_file
+    MARIADB_CONFIG[OPTION_GROUP] = args.option_group
     MARIADB_CONFIG["Verbose"] = args.debug
     from pprint import pprint as pp
 
