@@ -1,15 +1,14 @@
-# MySQL CollectD Plugin
+# MariaDB CollectD Plugin
 
-A python MySQL plugin for CollectD. Designed for MySQL 5.5+, and specifically variants such as MariaDB or Percona Server.
+A Python MariaDB plugin for CollectD. Designed for MariaDB 10.6+
 
-Pulls most of the same metrics as the Percona Monitoring Plugins for Cacti. Collects over 350 MySQL metrics per interval.
+A fork of the MySQL CollectD plugin tailored for additions made to MariDB 10.6 and beyond. MariaDB specific features include metrics for Galera, Columnstore, Userstat, MariaDB Enterprise Server, Multi-Source replication.
 
-Most MySQL monitoring plugins fetch a lot of information by parsing the output of `SHOW ENGINE INNODB STATUS`. This plugin prefers InnoDB statistics from `SHOW GLOBAL STATUS`. Percona Server and MariaDB provide most of these InnoDB metrics on `SHOW GLOBAL STATUS`.
+This plugin requires the MariaDB Connector/Python, `mariadb`, driver installed.
 
-Requires the Python MySQLdb package. (`python-mysqldb` on Debian)
 
 ## Installation
-1. Place mysql.py in your CollectD python plugins directory
+1. Place mariadb.py in your CollectD python plugins directory
 2. Configure the plugin in CollectD
 3. Restart CollectD
 
@@ -23,19 +22,31 @@ If you don’t already have the Python module loaded, you need to configure it f
     	ModulePath "/path/to/python/modules"
     </Plugin>
 
-You should then configure the MySQL plugin:
+You should then configure the MariaDB plugin:
 
 	<Plugin python>
-		Import mysql
-		<Module mysql>
+		Import mariadb 
+		<Module mariadb>
 			Host "localhost" (default: localhost)
 			Port 3306 (default: 3306)
 			User "root" (default: root)
 			Password "xxxx" (default: empty)
-			HeartbeatTable "percona.heartbeat" (if using pt-heartbeat to track slave lag)
 			Verbose false (default: false)
 		</Module>
 	</Plugin>
+
+## ToDo
+
+* Replace print statements with logging library
+* Add SSL support
+* Add option file and section reading
+* Add MariaDB extras:
+  * Galera
+  * Columnstore
+  * Userstat
+  * Multi-source Replication
+  * Disks plugin
+  * Computed metrics like status.reads, status.writes
 
 ## Metrics
 
