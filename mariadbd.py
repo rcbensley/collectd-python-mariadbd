@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # CollectD MariaDB plugin, designed for MariaDB 10.6+
-# Forked from the CollectD MySQL Python Plugin.
-# Renamed to mariadb so it will not conflict with mysql plugin.
+# Forked from the CollectD MySQL Python plugin.
 #
 # Configuration:
 #  Import mariadbd
@@ -347,23 +346,28 @@ def fetch_mysql_status(conn):
     result = mysql_query(conn, "SHOW GLOBAL STATUS")
     status = {}
     for row in result.fetchall():
-        status[row["Variable_name"]] = row["Value"]
+        try:
+            status[row["Variable_name"]] = row["Value"]
 
-    # calculate the number of unpurged txns from existing variables
-    if "Innodb_max_trx_id" in status:
-        status["Innodb_unpurged_txns"] = int(status["Innodb_max_trx_id"]) - int(
-            status["Innodb_purge_trx_id"]
-        )
+            # calculate the number of unpurged txns from existing variables
+            #if "Innodb_max_trx_id" in status:
+            #    status["Innodb_unpurged_txns"] = int(status["Innodb_max_trx_id"]) - int(
+            #        status["Innodb_purge_trx_id"]
+            #    )
 
-    if "Innodb_lsn_last_checkpoint" in status:
-        status["Innodb_uncheckpointed_bytes"] = int(status["Innodb_lsn_current"]) - int(
-            status["Innodb_lsn_last_checkpoint"]
-        )
+            #if "Innodb_lsn_last_checkpoint" in status:
+            #    status["Innodb_uncheckpointed_bytes"] = int(status["Innodb_lsn_current"]) - int(
+            #        status["Innodb_lsn_last_checkpoint"]
+            #    )
 
-    if "Innodb_lsn_flushed" in status:
-        status["Innodb_unflushed_log"] = int(status["Innodb_lsn_current"]) - int(
-            status["Innodb_lsn_flushed"]
-        )
+            #if "Innodb_lsn_flushed" in status:
+            #    status["Innodb_unflushed_log"] = int(status["Innodb_lsn_current"]) - int(
+            #        status["Innodb_lsn_flushed"]
+            #    )
+
+        except KeyError as e:
+            print(f"Unknown key: {e}")
+            continue
 
     return status
 
@@ -622,7 +626,8 @@ if COLLECTD_ENABLED:
 if __name__ == "__main__" and not COLLECTD_ENABLED:
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "-f", "--option-file",
+        "-f",
+        "--option-file",
         help="Path to MariaDB client option file",
         default=OPTION_FILE_PATH,
     )
