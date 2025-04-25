@@ -1,19 +1,22 @@
 # MariaDB CollectD Plugin
 
-A Python MariaDB plugin for CollectD. Designed for MariaDB 10.6+
+A Python CollectD plugin for MariaDB 10.6+.
 
-A fork of the MySQL CollectD plugin tailored for additions made to MariDB 10.6 and beyond. MariaDB specific features include metrics for Galera, Columnstore, Userstat, MariaDB Enterprise Server, Multi-Source replication.
+Orginally forked from the MySQL CollectD plugin, tailored towads the many additions in MariaDB.
 
 This plugin requires the MariaDB Connector/Python, `mariadb`, driver installed.
 
 
 ## Installation
-1. Place mariadb.py in your CollectD python plugins directory
-2. Configure the plugin in CollectD
-3. Restart CollectD
+1. Install the [MariaDB Connector/Python](https://mariadb-corporation.github.io/mariadb-connector-python/install.html)
+1. Place `mariadbd.py` in your CollectD python plugins directory
+1. Create a config file at `/etc/collectd/collectd.conf.d/mariadbd.conf` using the client [Option](https://mariadb.com/kb/en/configuring-mariadb-with-option-files/) file settings for whatever your database connection requires.
+1. Test the script script runs: `./path/to/mariadb.py -d -c /etc/collectd/collectd.conf.d/mariadbd.conf`
+1. Configure the plugin in CollectD
+1. Restart CollectD
 
 ## Configuration
-If you don’t already have the Python module loaded, you need to configure it first:
+If you don’t already have the Python module loaded, you will need to configure it first:
 
     <LoadPlugin python>
     	Globals true
@@ -27,19 +30,25 @@ You should then configure the MariaDB plugin:
 	<Plugin python>
 		Import mariadb 
 		<Module mariadb>
-			Host "localhost" (default: localhost)
-			Port 3306 (default: 3306)
-			User "root" (default: root)
-			Password "xxxx" (default: empty)
+            Option_File /etc/collectd/collectd.conf.d/mariadbd.conf
+            Option_Group client
 			Verbose false (default: false)
 		</Module>
 	</Plugin>
 
+### Example mariadbd.py option file
+
+```
+[client]
+user=collector
+password=Collector!123
+host=10.0.0.4
+port=3307
+```
+
 ## ToDo
 
 * Replace print statements with logging library
-* Add SSL support
-* Add option file and section reading
 * Add MariaDB extras:
   * Galera
   * Columnstore
