@@ -31,11 +31,12 @@ import mariadb
 
 OPTION_FILE = "Option_File"
 OPTION_GROUP = "Option_Group"
-OPTION_FILE_PATH = "~/.my.cnf"
+COLLECTD_OPTION_FILE_PATH = "/etc/collectd/collectd.conf.d/mariadbd.conf"
+CLI_OPTION_FILE_PATH = "~/.my.cnf"
 OPTION_FILE_GROUP = "client"
 
 MARIADB_CONFIG = {
-    OPTION_FILE: OPTION_FILE_PATH,
+    OPTION_FILE: COLLECTD_OPTION_FILE_PATH,
     OPTION_GROUP: OPTION_FILE_GROUP,
     "Verbose": False,
 }
@@ -329,7 +330,7 @@ MYSQL_INNODB_STATUS_MATCHES = {
 }
 
 
-def get_mysql_conn():
+def get_mariadb_conn():
     return mariadb.connect(
         default_file=MARIADB_CONFIG[OPTION_FILE],
         default_group=MARIADB_CONFIG[OPTION_GROUP],
@@ -342,7 +343,7 @@ def mysql_query(conn, query):
     return cur
 
 
-def fetch_mysql_status(conn):
+def fetch_mariadb_status(conn):
     result = mysql_query(conn, "SHOW GLOBAL STATUS")
     status = {}
     for row in result.fetchall():
@@ -350,17 +351,17 @@ def fetch_mysql_status(conn):
             status[row["Variable_name"]] = row["Value"]
 
             # calculate the number of unpurged txns from existing variables
-            #if "Innodb_max_trx_id" in status:
+            # if "Innodb_max_trx_id" in status:
             #    status["Innodb_unpurged_txns"] = int(status["Innodb_max_trx_id"]) - int(
             #        status["Innodb_purge_trx_id"]
             #    )
 
-            #if "Innodb_lsn_last_checkpoint" in status:
+            # if "Innodb_lsn_last_checkpoint" in status:
             #    status["Innodb_uncheckpointed_bytes"] = int(status["Innodb_lsn_current"]) - int(
             #        status["Innodb_lsn_last_checkpoint"]
             #    )
 
-            #if "Innodb_lsn_flushed" in status:
+            # if "Innodb_lsn_flushed" in status:
             #    status["Innodb_unflushed_log"] = int(status["Innodb_lsn_current"]) - int(
             #        status["Innodb_lsn_flushed"]
             #    )
@@ -372,7 +373,7 @@ def fetch_mysql_status(conn):
     return status
 
 
-def fetch_mysql_master_stats(conn):
+def fetch_mariadb_master_stats(conn):
     try:
         result = mysql_query(conn, "SHOW BINARY LOGS")
     except mariadb.OperationalError:
@@ -389,41 +390,53 @@ def fetch_mysql_master_stats(conn):
     return stats
 
 
-def fetch_mysql_slave_stats(conn):
-    result = mysql_query(conn, "SHOW SLAVE STATUS")
-    slave_row = result.fetchone()
-    if slave_row is None:
+def fetch_mariadb_slave_stats(conn):
+    result = mysql_query(conn, "SHOW ALL REPLICAS STATUS")
+    slave_rows = result.fetchall()
+    if not slave_rows:
         return {}
 
-    status = {
-        "relay_log_space": slave_row["Relay_Log_Space"],
-        "slave_lag": (
-            slave_row["Seconds_Behind_Master"]
-            if slave_row["Seconds_Behind_Master"] != None
-            else 0
-        ),
-    }
+    status = {}
+    for row in slave_rows:
+        if row["Connection_name"]:
+            connection_name = f"{row['Connection_name']}_"
+        else:
+            connection_name = ""
 
-    if MARIADB_CONFIG["HeartbeatTable"]:
-        query = """
-			SELECT MAX(UNIX_TIMESTAMP() - UNIX_TIMESTAMP(ts)) AS delay
-			FROM %s
-			WHERE server_id = %s
-		""" % (
-            MARIADB_CONFIG["HeartbeatTable"],
-            slave_row["Master_Server_Id"],
+        status[f"{connection_name}{row['Slave_SQL_State']}"] = (
+            1 if row["Slave_SQL_State"] == "YES" else 0
         )
-        result = mysql_query(conn, query)
-        row = result.fetchone()
-        if "delay" in row and row["delay"] != None:
-            status["slave_lag"] = row["delay"]
+        status[f"{connection_name}{row['Slave_IO_State']}"] = (
+            1 if row["Slave_IO_State"] == "YES" else 0
+        )
 
-    status["slave_running"] = 1 if slave_row["Slave_SQL_Running"] == "Yes" else 0
-    status["slave_stopped"] = 1 if slave_row["Slave_SQL_Running"] != "Yes" else 0
+        for k in (
+            "Relay_Log_Space",
+            "Seconds_Behind_Master" "Retried_transactions",
+            "Executed_log_entries",
+            "Slave_received_heartbeats",
+            "Slave_heartbeat_period",
+            "SQL_Delay",
+            "SQL_Remaining_Delay",
+            "Slave_DDL_Groups",
+            "Slave_Non_Transactional_Groups",
+            "Slave_Transactional_Groups",
+            "Slave_received_heartbeats",
+            "Slave_heartbeat_period",
+            "Master_last_event_time",
+            "Slave_last_event_time",
+            "Master_Slave_time_diff",
+        ):
+            if k not in row:
+                continue
+            if row[k] or row[k] == "NULL":
+                status[f"{connection_name}{row[k]}"] = row[k]
+            else:
+                status[f"{connection_name}{row[k]}"] = 0
     return status
 
 
-def fetch_mysql_process_states(conn):
+def fetch_mariadb_process_states(conn):
     global MYSQL_PROCESS_STATES
     result = mysql_query(conn, "SHOW PROCESSLIST")
     states = MYSQL_PROCESS_STATES.copy()
@@ -440,7 +453,7 @@ def fetch_mysql_process_states(conn):
     return states
 
 
-def fetch_mysql_variables(conn):
+def fetch_mariadb_variables(conn):
     global MYSQL_VARS
     result = mysql_query(conn, "SHOW GLOBAL VARIABLES")
     variables = {}
@@ -451,7 +464,7 @@ def fetch_mysql_variables(conn):
     return variables
 
 
-def fetch_mysql_response_times(conn):
+def fetch_mariadb_response_times(conn):
     response_times = {}
     try:
         result = mysql_query(
@@ -528,19 +541,18 @@ def fetch_innodb_stats(conn):
 
 
 def log_verbose(msg):
-    if not MARIADB_CONFIG["Verbose"]:
-        return
     if COLLECTD_ENABLED:
-        collectd.info("mysql plugin: %s" % msg)
+        collectd.info("mariadbd plugin: %s" % msg)
     else:
-        print("mysql plugin: %s" % msg)
+        print("mariadbd plugin: %s" % msg)
 
 
 def dispatch_value(prefix, key, value, type, type_instance=None):
     if not type_instance:
         type_instance = key
 
-    log_verbose("Sending value: %s/%s=%s" % (prefix, type_instance, value))
+    if MARIADB_CONFIG["Verbose"]:
+        log_verbose("Sending value: %s/%s=%s" % (prefix, type_instance, value))
     if value is None:
         return
     try:
@@ -549,7 +561,7 @@ def dispatch_value(prefix, key, value, type, type_instance=None):
         value = float(value)
 
     if COLLECTD_ENABLED:
-        val = collectd.Values(plugin="mysql", plugin_instance=prefix)
+        val = collectd.Values(plugin="mariadbd", plugin_instance=prefix)
         val.type = type
         val.type_instance = type_instance
         val.values = [value]
@@ -562,15 +574,14 @@ def configure_callback(conf):
         if node.key in MARIADB_CONFIG:
             MARIADB_CONFIG[node.key] = node.values[0]
 
-    MARIADB_CONFIG["Port"] = int(MARIADB_CONFIG["Port"])
     MARIADB_CONFIG["Verbose"] = bool(MARIADB_CONFIG["Verbose"])
 
 
 def read_callback():
     global MYSQL_STATUS_VARS
-    conn = get_mysql_conn()
+    conn = get_mariadb_conn()
 
-    mysql_status = fetch_mysql_status(conn)
+    mysql_status = fetch_mariadb_status(conn)
     for key in mysql_status:
         if mysql_status[key] == "":
             mysql_status[key] = 0
@@ -587,23 +598,23 @@ def read_callback():
 
         dispatch_value("status", key, mysql_status[key], ds_type)
 
-    mysql_variables = fetch_mysql_variables(conn)
+    mysql_variables = fetch_mariadb_variables(conn)
     for key in mysql_variables:
         dispatch_value("variables", key, mysql_variables[key], "gauge")
 
-    mysql_master_status = fetch_mysql_master_stats(conn)
+    mysql_master_status = fetch_mariadb_master_stats(conn)
     for key in mysql_master_status:
         dispatch_value("master", key, mysql_master_status[key], "gauge")
 
-    mysql_states = fetch_mysql_process_states(conn)
+    mysql_states = fetch_mariadb_process_states(conn)
     for key in mysql_states:
         dispatch_value("state", key, mysql_states[key], "gauge")
 
-    slave_status = fetch_mysql_slave_stats(conn)
+    slave_status = fetch_mariadb_slave_stats(conn)
     for key in slave_status:
         dispatch_value("slave", key, slave_status[key], "gauge")
 
-    response_times = fetch_mysql_response_times(conn)
+    response_times = fetch_mariadb_response_times(conn)
     for key in response_times:
         dispatch_value(
             "response_time_total", str(key), response_times[key]["total"], "counter"
@@ -629,7 +640,7 @@ if __name__ == "__main__" and not COLLECTD_ENABLED:
         "-f",
         "--option-file",
         help="Path to MariaDB client option file",
-        default=OPTION_FILE_PATH,
+        default=CLI_OPTION_FILE_PATH,
     )
     parser.add_argument(
         "-g",
