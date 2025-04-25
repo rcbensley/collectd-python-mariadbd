@@ -1,31 +1,28 @@
 #!/usr/bin/env python
 # CollectD MariaDB plugin, designed for MariaDB 10.6+
 # Forked from the CollectD MySQL Python plugin.
+# Requires the mariadb python driver and a valid MariaDB client config.
+# Debug example: ./mariadbd.py -d -c ~/.my.cnf -g client
 #
 # Configuration:
 #  Import mariadbd
 #  <Module mariadbd>
-#  	Option_File ~/.my.cnf
+#  	Option_File /etc/collectd/collectd.conf.d/mariadbd.conf
 #   Option_Group client
-#   Verbose true (optional, to enable debugging)
+#   debug false (optional, to enable debugging)
 #  </Module>
 #
-# Requires "mariadb" for Python
-#
-# Authors: Chris Boulton <chris@chrisboulton.com>, Richard Bensley <richard.bensley@mariadb.com>
 # License: MIT (http://www.opensource.org/licenses/mit-license.php)
 #
 
 import argparse
-import os
 import re
 
 COLLECTD_ENABLED = True
 try:
     import collectd
 except ImportError:
-    # We're not running in CollectD, set this to False so we can make some changes
-    # accordingly for testing/development.
+    # Interactive mode for debugging
     COLLECTD_ENABLED = False
 import mariadb
 
@@ -38,10 +35,10 @@ OPTION_FILE_GROUP = "client"
 MARIADB_CONFIG = {
     OPTION_FILE: COLLECTD_OPTION_FILE_PATH,
     OPTION_GROUP: OPTION_FILE_GROUP,
-    "Verbose": False,
+    "debug": False,
 }
 
-MYSQL_STATUS_VARS = {
+MARIADB_STATUS_VARS = {
     "Aborted_clients": "counter",
     "Aborted_connects": "counter",
     "Binlog_cache_disk_use": "counter",
@@ -391,6 +388,8 @@ def fetch_mariadb_master_stats(conn):
 
 
 def fetch_mariadb_slave_stats(conn):
+    def str_2_val(s: str):
+        return 1 if s == "YES" else 0
     result = mysql_query(conn, "SHOW ALL REPLICAS STATUS")
     slave_rows = result.fetchall()
     if not slave_rows:
@@ -403,12 +402,8 @@ def fetch_mariadb_slave_stats(conn):
         else:
             connection_name = ""
 
-        status[f"{connection_name}{row['Slave_SQL_State']}"] = (
-            1 if row["Slave_SQL_State"] == "YES" else 0
-        )
-        status[f"{connection_name}{row['Slave_IO_State']}"] = (
-            1 if row["Slave_IO_State"] == "YES" else 0
-        )
+        for r in ('Slave_IO_Running','Slave_SQL_Running'):
+           status[f"{connect_name}{row[r]}"] = str_2_val(row[r]) 
 
         for k in (
             "Relay_Log_Space",
@@ -540,7 +535,7 @@ def fetch_innodb_stats(conn):
     return stats
 
 
-def log_verbose(msg):
+def log_debug(msg):
     if COLLECTD_ENABLED:
         collectd.info("mariadbd plugin: %s" % msg)
     else:
@@ -551,8 +546,8 @@ def dispatch_value(prefix, key, value, type, type_instance=None):
     if not type_instance:
         type_instance = key
 
-    if MARIADB_CONFIG["Verbose"]:
-        log_verbose("Sending value: %s/%s=%s" % (prefix, type_instance, value))
+    if MARIADB_CONFIG["debug"]:
+        log_debug("Sending value: %s/%s=%s" % (prefix, type_instance, value))
     if value is None:
         return
     try:
@@ -574,11 +569,11 @@ def configure_callback(conf):
         if node.key in MARIADB_CONFIG:
             MARIADB_CONFIG[node.key] = node.values[0]
 
-    MARIADB_CONFIG["Verbose"] = bool(MARIADB_CONFIG["Verbose"])
+    MARIADB_CONFIG["debug"] = bool(MARIADB_CONFIG["debug"])
 
 
 def read_callback():
-    global MYSQL_STATUS_VARS
+    global MARIADB_STATUS_VARS
     conn = get_mariadb_conn()
 
     mysql_status = fetch_mariadb_status(conn)
@@ -591,8 +586,8 @@ def read_callback():
         # list
         if key.split("_", 2)[0] in ["Com", "Handler"]:
             ds_type = "counter"
-        elif key in MYSQL_STATUS_VARS:
-            ds_type = MYSQL_STATUS_VARS[key]
+        elif key in MARIADB_STATUS_VARS:
+            ds_type = MARIADB_STATUS_VARS[key]
         else:
             continue
 
@@ -652,7 +647,7 @@ if __name__ == "__main__" and not COLLECTD_ENABLED:
     args = parser.parse_args()
     MARIADB_CONFIG[OPTION_FILE] = args.option_file
     MARIADB_CONFIG[OPTION_GROUP] = args.option_group
-    MARIADB_CONFIG["Verbose"] = args.debug
+    MARIADB_CONFIG["debug"] = args.debug
     from pprint import pprint as pp
 
     pp(MARIADB_CONFIG)

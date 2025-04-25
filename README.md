@@ -180,9 +180,9 @@ The following are determined programatically:
     status.Innodb_uncheckpointed_bytes = Innodb_lsn_current - Innodb_lsn_last_checkpoint
     status.Innodb_unflushed_log = Innodb_lsn_current - Innodb_lsn_flushed
 
-### MySQL Variables
+### MariaDB Variables
 
-Collected from `SHOW VARIABLES`:
+Collected from `SHOW GLOBAL VARIABLES`:
 
     variables.binlog_stmt_cache_size
     variables.innodb_additional_mem_pool_size
@@ -317,13 +317,19 @@ TBD:
 	additional_pool_alloc
 
 
-### Master/Slave Status
+### Replication Status
    
-From `SHOW BINARY LOGS`:
+Source `SHOW BINARY LOGS`
 
-    master.binary_log_space - Total file size consumed by binlog files
+    binary_log_space - Total file size consumed by binlog files
+    binary_log_count - Total number of local binary logs
 
-From `SHOW SLAVE STATUS`:
+Source `SHOW ALL REPLICAS STATUS`
+
+If the metric is from a named connection (multi-source replication), the connection name is a prefix:
+
+    slave.Seconds_Behind_Master
+    slave.from_db5.Seconds_Bheind_Master
 
 	slave.relay_log_space - Total file size consumed by relay log files
     slave.slave_lag - Value of Seconds_Behind_Master, unless using HeartbeatTable is supplied, in which case slave lag will be determined from the pt-heartbeat table based on the server's master server ID.
