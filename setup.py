@@ -7,7 +7,7 @@ if not os.path.exists(COLLECTD_MODULE_DIR):
     os.makedirs(COLLECTD_MODULE_DIR, exist_ok=True)
 
 setup(
-    name="collectd-mariadbd-plugin",
+    name="collectd-python-mariadb",
     version="0.1.0",
     descript="Collectd plugin for monitoring MariaDB",
     py_modules=["mariadbd"],

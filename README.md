@@ -2,12 +2,11 @@
 
 A Python CollectD plugin for MariaDB 10.6+.
 
-Orginally forked from the MySQL CollectD plugin, tailored towads the many additions in MariaDB.
-
-This plugin requires the MariaDB Connector/Python, `mariadb`, driver installed.
+Orginally forked from the MySQL CollectD plugin, tailored towards the many additions in MariaDB and the newer,faster, C based driver, MariaDB Connector/Python.
 
 
 ## Installation
+
 1. Create a suitable database user: `GRANT SELECT, PROCESS, BINLOG MONITORING ON *.* to 'collectd'@'127.0.0.1' IDENTIFIED BY 'password123' WITH MAX_USER_CONNECTIONS 2;`
 1. Install the [MariaDB Connector/Python](https://mariadb-corporation.github.io/mariadb-connector-python/install.html)
 1. Run the installer: `sudo python3 -m pip install . --break-system-packages`
