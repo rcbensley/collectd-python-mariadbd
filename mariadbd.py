@@ -28,7 +28,7 @@ import mariadb
 
 OPTION_FILE = "Option_File"
 OPTION_GROUP = "Option_Group"
-COLLECTD_OPTION_FILE_PATH = "/etc/collectd/collectd.conf.d/mariadbd.conf"
+COLLECTD_OPTION_FILE_PATH = "/usr/lib/collectd/python/mariadbd.conf"
 CLI_OPTION_FILE_PATH = "~/.my.cnf"
 OPTION_FILE_GROUP = "client"
 

@@ -8,40 +8,34 @@ This plugin requires the MariaDB Connector/Python, `mariadb`, driver installed.
 
 
 ## Installation
+1. Create a suitable database user: `GRANT SELECT, PROCESS, BINLOG MONITORING ON *.* to 'collectd'@'127.0.0.1' IDENTIFIED BY 'password123' WITH MAX_USER_CONNECTIONS 2;`
 1. Install the [MariaDB Connector/Python](https://mariadb-corporation.github.io/mariadb-connector-python/install.html)
-1. Place `mariadbd.py` in your CollectD python plugins directory
-1. Create a config file at `/etc/collectd/collectd.conf.d/mariadbd.conf` using the client [Option](https://mariadb.com/kb/en/configuring-mariadb-with-option-files/) file settings for whatever your database connection requires.
-1. Test the script script runs: `./path/to/mariadb.py -d -c /etc/collectd/collectd.conf.d/mariadbd.conf`
-1. Configure the plugin in CollectD
+1. Run the installer: `sudo python3 -m pip install . --break-system-packages`
+1. Update the config file at `/usr/lib/collectd/python/mariadbd.conf`
+1. Test the script script runs: `./usr/lib/collectd/python/mariadb.py -d -c /usr/lib/collectd/python/mariadbd.conf`
+1. Configure the plugin in CollectD (below)
 1. Restart CollectD
 
-## Configuration
-If you don’t already have the Python module loaded, you will need to configure it first:
+## CollectD Configuration
 
-    <LoadPlugin python>
-    	Globals true
-    </LoadPlugin>
-    <Plugin python>
-    	ModulePath "/path/to/python/modules"
-    </Plugin>
+Located at `/etc/collectd/collectd.conf`
 
-You should then configure the MariaDB plugin:
-
-	<Plugin python>
-		Import mariadb 
-		<Module mariadb>
-            Option_File /etc/collectd/collectd.conf.d/mariadbd.conf
-            Option_Group client
-			Verbose false (default: false)
-		</Module>
-	</Plugin>
+```
+<Plugin python>
+    ModulePath "/usr/lib/collectd/python"
+    Import "mariadbd"
+    <Module mariadbd>
+        Option_File "/usr/lib/collectd/python/mariadbd.conf"
+    </Module>
+</Plugin>
+```
 
 ### Example mariadbd.py option file
 
 ```
 [client]
 user=collector
-password=Collector!123
+[assword=Collector!123
 host=10.0.0.4
 port=3307
 ```
@@ -49,6 +43,8 @@ port=3307
 ## ToDo
 
 * Replace print statements with logging library
+* Make everything more mariadb-ish
+* Update to match modern collectd python api (if needed)
 * Add MariaDB extras:
   * Galera
   * Columnstore
@@ -56,6 +52,7 @@ port=3307
   * Multi-source Replication
   * Disks plugin
   * Computed metrics like status.reads, status.writes
+* Example outputs
 
 ## Metrics
 
