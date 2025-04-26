@@ -1,4 +1,4 @@
-# MariaDB CollectD Plugin
+# CollectD Plugin MariaDBD
 
 A Python CollectD plugin for MariaDB 10.6+.
 
@@ -13,7 +13,9 @@ Orginally forked from the MySQL CollectD plugin, tailored towards the many addit
 1. Update the config file at `/usr/lib/collectd/python/mariadbd.conf`
 1. Test the script script runs: `./usr/lib/collectd/python/mariadb.py -d -c /usr/lib/collectd/python/mariadbd.conf`
 1. Configure the plugin in CollectD (below)
-1. Restart CollectD
+1. Restart CollectD: `sudo systemctl restart collectd`
+
+The package will be installed as `collectd-plugin-mariadbd`
 
 ## CollectD Configuration
 
@@ -326,11 +328,6 @@ If the metric is from a named connection (multi-source replication), the connect
 
     slave.Seconds_Behind_Master
     slave.from_db5.Seconds_Bheind_Master
-
-	slave.relay_log_space - Total file size consumed by relay log files
-    slave.slave_lag - Value of Seconds_Behind_Master, unless using HeartbeatTable is supplied, in which case slave lag will be determined from the pt-heartbeat table based on the server's master server ID.
-    slave.slave_stopped - 1 when the slave is stopped, 0 when it's running
-    slave.slave_running - 1 when the slave is running, 0 when it's stopped
 
 ### Query Response Times
 
