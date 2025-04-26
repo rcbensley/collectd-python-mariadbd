@@ -378,11 +378,16 @@ def fetch_mariadb_master_stats(conn):
 
     stats = {
         "binary_log_space": 0,
+        "binary_log_count": 0,
     }
 
     for row in result.fetchall():
-        if "File_size" in row and row["File_size"] > 0:
+        if "File_size" not in row:
+            continue
+        if row["File_size"] > 0:
             stats["binary_log_space"] += int(row["File_size"])
+
+        stats["binary_log_count"] += 1
 
     return stats
 
@@ -390,8 +395,9 @@ def fetch_mariadb_master_stats(conn):
 def fetch_mariadb_slave_stats(conn):
     def str_2_val(s: str):
         return 1 if s == "YES" else 0
-    result = mysql_query(conn, "SHOW ALL REPLICAS STATUS")
+    result = mysql_query(conn, "SHOW ALL SLAVES STATUS")
     slave_rows = result.fetchall()
+    print(slave_rows)
     if not slave_rows:
         return {}
 
@@ -401,6 +407,7 @@ def fetch_mariadb_slave_stats(conn):
             connection_name = f"{row['Connection_name']}_"
         else:
             connection_name = ""
+
 
         for r in ('Slave_IO_Running','Slave_SQL_Running'):
            status[f"{connect_name}{row[r]}"] = str_2_val(row[r]) 
@@ -474,6 +481,7 @@ def fetch_mariadb_response_times(conn):
     except mariadb.OperationalError:
         return {}
 
+    # enumerate this later
     for i in range(1, 14):
         row = result.fetchone()
 
@@ -623,6 +631,7 @@ def read_callback():
         if key not in innodb_status:
             continue
         dispatch_value("innodb", key, innodb_status[key], MYSQL_INNODB_STATUS_VARS[key])
+    conn.close()
 
 
 if COLLECTD_ENABLED:
