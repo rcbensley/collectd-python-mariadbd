@@ -1,41 +1,59 @@
-# MySQL CollectD Plugin
+# CollectD Plugin MariaDBD
 
-A python MySQL plugin for CollectD. Designed for MySQL 5.5+, and specifically variants such as MariaDB or Percona Server.
+A Python CollectD plugin for MariaDB 10.6+.
 
-Pulls most of the same metrics as the Percona Monitoring Plugins for Cacti. Collects over 350 MySQL metrics per interval.
+Orginally forked from the MySQL CollectD plugin, tailored towards the many additions in MariaDB and the newer,faster, C based driver, MariaDB Connector/Python.
 
-Most MySQL monitoring plugins fetch a lot of information by parsing the output of `SHOW ENGINE INNODB STATUS`. This plugin prefers InnoDB statistics from `SHOW GLOBAL STATUS`. Percona Server and MariaDB provide most of these InnoDB metrics on `SHOW GLOBAL STATUS`.
-
-Requires the Python MySQLdb package. (`python-mysqldb` on Debian)
 
 ## Installation
-1. Place mysql.py in your CollectD python plugins directory
-2. Configure the plugin in CollectD
-3. Restart CollectD
 
-## Configuration
-If you don’t already have the Python module loaded, you need to configure it first:
+1. Create a suitable database user: `GRANT SELECT, PROCESS, BINLOG MONITORING ON *.* to 'collectd'@'127.0.0.1' IDENTIFIED BY 'password123' WITH MAX_USER_CONNECTIONS 2;`
+1. Install the [MariaDB Connector/Python](https://mariadb-corporation.github.io/mariadb-connector-python/install.html)
+1. Run the installer: `sudo python3 -m pip install . --break-system-packages`
+1. Update the config file at `/usr/lib/collectd/python/mariadbd.conf`
+1. Test the script script runs: `./usr/lib/collectd/python/mariadb.py -d -c /usr/lib/collectd/python/mariadbd.conf`
+1. Configure the plugin in CollectD (below)
+1. Restart CollectD: `sudo systemctl restart collectd`
 
-    <LoadPlugin python>
-    	Globals true
-    </LoadPlugin>
-    <Plugin python>
-    	ModulePath "/path/to/python/modules"
-    </Plugin>
+The package will be installed as `collectd-plugin-mariadbd`
 
-You should then configure the MySQL plugin:
+## CollectD Configuration
 
-	<Plugin python>
-		Import mysql
-		<Module mysql>
-			Host "localhost" (default: localhost)
-			Port 3306 (default: 3306)
-			User "root" (default: root)
-			Password "xxxx" (default: empty)
-			HeartbeatTable "percona.heartbeat" (if using pt-heartbeat to track slave lag)
-			Verbose false (default: false)
-		</Module>
-	</Plugin>
+Located at `/etc/collectd/collectd.conf`
+
+```
+<Plugin python>
+    ModulePath "/usr/lib/collectd/python"
+    Import "mariadbd"
+    <Module mariadbd>
+        Option_File "/usr/lib/collectd/python/mariadbd.conf"
+    </Module>
+</Plugin>
+```
+
+### Example mariadbd.py option file
+
+```
+[client]
+user=collector
+[assword=Collector!123
+host=10.0.0.4
+port=3307
+```
+
+## ToDo
+
+* Replace print statements with logging library
+* Make everything more mariadb-ish
+* Update to match modern collectd python api (if needed)
+* Add MariaDB extras:
+  * Galera
+  * Columnstore
+  * Userstat
+  * Multi-source Replication
+  * Disks plugin
+  * Computed metrics like status.reads, status.writes
+* Example outputs
 
 ## Metrics
 
@@ -160,9 +178,9 @@ The following are determined programatically:
     status.Innodb_uncheckpointed_bytes = Innodb_lsn_current - Innodb_lsn_last_checkpoint
     status.Innodb_unflushed_log = Innodb_lsn_current - Innodb_lsn_flushed
 
-### MySQL Variables
+### MariaDB Variables
 
-Collected from `SHOW VARIABLES`:
+Collected from `SHOW GLOBAL VARIABLES`:
 
     variables.binlog_stmt_cache_size
     variables.innodb_additional_mem_pool_size
@@ -297,18 +315,19 @@ TBD:
 	additional_pool_alloc
 
 
-### Master/Slave Status
+### Replication Status
    
-From `SHOW BINARY LOGS`:
+Source `SHOW BINARY LOGS`
 
-    master.binary_log_space - Total file size consumed by binlog files
+    binary_log_space - Total file size consumed by binlog files
+    binary_log_count - Total number of local binary logs
 
-From `SHOW SLAVE STATUS`:
+Source `SHOW ALL REPLICAS STATUS`
 
-	slave.relay_log_space - Total file size consumed by relay log files
-    slave.slave_lag - Value of Seconds_Behind_Master, unless using HeartbeatTable is supplied, in which case slave lag will be determined from the pt-heartbeat table based on the server's master server ID.
-    slave.slave_stopped - 1 when the slave is stopped, 0 when it's running
-    slave.slave_running - 1 when the slave is running, 0 when it's stopped
+If the metric is from a named connection (multi-source replication), the connection name is a prefix:
+
+    slave.Seconds_Behind_Master
+    slave.from_db5.Seconds_Bheind_Master
 
 ### Query Response Times
 
