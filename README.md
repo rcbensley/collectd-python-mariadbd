@@ -68,8 +68,10 @@ port=3307
 ## FAQ
 
 Q: Why use this?
-A: Good question. 
+A: Good question.
 
+Q: More questions
+A: more answers
 
 
 ## Metrics
@@ -320,7 +322,7 @@ TBD:
 
 
 ### Replication Status
-   
+
 Source `SHOW BINARY LOGS`
 
     binary_log_space - Total file size consumed by binlog files
@@ -349,3 +351,4 @@ For versions of MySQL with support for it and where enabled, `INFORMATION_SCHEMA
 
 ## License
 MIT (http://www.opensource.org/licenses/mit-license.php)
+
