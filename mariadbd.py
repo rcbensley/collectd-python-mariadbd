@@ -17,6 +17,7 @@
 
 import argparse
 import re
+import os
 
 COLLECTD_ENABLED = True
 try:
@@ -29,7 +30,6 @@ import mariadb
 OPTION_FILE = "Option_File"
 OPTION_GROUP = "Option_Group"
 COLLECTD_OPTION_FILE_PATH = "/usr/lib/collectd/python/mariadbd.conf"
-CLI_OPTION_FILE_PATH = "~/.my.cnf"
 OPTION_FILE_GROUP = "client"
 
 MARIADB_CONFIG = {
@@ -393,11 +393,8 @@ def fetch_mariadb_master_stats(conn):
 
 
 def fetch_mariadb_slave_stats(conn):
-    def str_2_val(s: str):
-        return 1 if s == "YES" else 0
     result = mysql_query(conn, "SHOW ALL SLAVES STATUS")
     slave_rows = result.fetchall()
-    print(slave_rows)
     if not slave_rows:
         return {}
 
@@ -408,13 +405,14 @@ def fetch_mariadb_slave_stats(conn):
         else:
             connection_name = ""
 
-
-        for r in ('Slave_IO_Running','Slave_SQL_Running'):
-           status[f"{connect_name}{row[r]}"] = str_2_val(row[r]) 
+        for r in ("Slave_IO_Running", "Slave_SQL_Running"):
+            val = 1 if row[r] == "YES" else 0
+            status[f"{connection_name}{r}"] = val
 
         for k in (
             "Relay_Log_Space",
-            "Seconds_Behind_Master" "Retried_transactions",
+            "Seconds_Behind_Master",
+            "Retried_transactions",
             "Executed_log_entries",
             "Slave_received_heartbeats",
             "Slave_heartbeat_period",
@@ -431,10 +429,12 @@ def fetch_mariadb_slave_stats(conn):
         ):
             if k not in row:
                 continue
-            if row[k] or row[k] == "NULL":
-                status[f"{connection_name}{row[k]}"] = row[k]
+            if not row[k] or row[k] == "NULL":
+                status[f"{connection_name}{k}"] = 0
+            if row[k]:
+                status[f"{connection_name}{k}"] = row[k]
             else:
-                status[f"{connection_name}{row[k]}"] = 0
+                status[f"{connection_name}{k}"] = 0
     return status
 
 
@@ -614,8 +614,8 @@ def read_callback():
         dispatch_value("state", key, mysql_states[key], "gauge")
 
     slave_status = fetch_mariadb_slave_stats(conn)
-    for key in slave_status:
-        dispatch_value("slave", key, slave_status[key], "gauge")
+    for k, v in slave_status.items():
+        dispatch_value("slave", k, v, "gauge")
 
     response_times = fetch_mariadb_response_times(conn)
     for key in response_times:
@@ -643,21 +643,16 @@ if __name__ == "__main__" and not COLLECTD_ENABLED:
     parser.add_argument(
         "-f",
         "--option-file",
-        help="Path to MariaDB client option file",
-        default=CLI_OPTION_FILE_PATH,
+        default="~/.my.cnf",
     )
     parser.add_argument(
         "-g",
         "--option-group",
-        help="Group name in the MariaDB client option file",
-        default=OPTION_FILE_GROUP,
+        default="client",
     )
-    parser.add_argument("-d", "--debug", action="store_true", default=False)
     args = parser.parse_args()
-    MARIADB_CONFIG[OPTION_FILE] = args.option_file
+    MARIADB_CONFIG[OPTION_FILE] = os.path.expanduser(args.option_file)
     MARIADB_CONFIG[OPTION_GROUP] = args.option_group
-    MARIADB_CONFIG["debug"] = args.debug
-    from pprint import pprint as pp
-
-    pp(MARIADB_CONFIG)
+    MARIADB_CONFIG["debug"] = True
+    print(MARIADB_CONFIG)
     read_callback()
