@@ -2,24 +2,33 @@
 
 A Python CollectD plugin for MariaDB 10.6+.
 
-Orginally forked from the MySQL CollectD plugin, tailored towards the many additions in MariaDB and the newer,faster, C based driver, MariaDB Connector/Python.
+Orginally forked from the [collectd-python-mysql](https://github.com/chrisboulton/collectd-python-mysql), tailored towards the many additions in MariaDB and the newer, faster, C based driver, MariaDB Connector/Python.
 
 
 ## Installation
 
-1. Create a suitable database user: `GRANT SELECT, PROCESS, BINLOG MONITORING ON *.* to 'collectd'@'127.0.0.1' IDENTIFIED BY 'password123' WITH MAX_USER_CONNECTIONS 2;`
-1. Install the [MariaDB Connector/Python](https://mariadb-corporation.github.io/mariadb-connector-python/install.html)
-1. Run the installer: `sudo python3 -m pip install . --break-system-packages`
-1. Update the config file at `/usr/lib/collectd/python/mariadbd.conf`
-1. Test the script script runs: `./usr/lib/collectd/python/mariadb.py -d -c /usr/lib/collectd/python/mariadbd.conf`
-1. Configure the plugin in CollectD (below)
+1. Create a suitable database user:
+	```
+	GRANT SELECT, PROCESS, BINLOG MONITORING ON *.* to 'collectd'@'127.0.0.1' IDENTIFIED BY 'password123' WITH MAX_USER_CONNECTIONS 2;
+	```
+1. Install [MariaDB Connector/Python](https://mariadb-corporation.github.io/mariadb-connector-python/install.html)
+1. Run the installer:
+	```
+	sudo python3 -m pip install . --break-system-packages
+ 	```
+1. Update the [plugin config](#example-plugin-configuration) file at `/usr/lib/collectd/python/mariadbd.conf`
+1. Update the [CollectD configuration](#example-collectd-configuration)
+1. Optionally test the script script runs:
+	```
+	./usr/lib/collectd/python/mariadb.py -c /usr/lib/collectd/python/mariadbd.conf
+ 	```
 1. Restart CollectD: `sudo systemctl restart collectd`
 
 The package will be installed as `collectd-plugin-mariadbd`
 
-## CollectD Configuration
+### Example CollectD Configuration
 
-Located at `/etc/collectd/collectd.conf`
+Usually located at `/etc/collectd/collectd.conf`
 
 ```
 <Plugin python>
@@ -31,7 +40,7 @@ Located at `/etc/collectd/collectd.conf`
 </Plugin>
 ```
 
-### Example mariadbd.py option file
+### Example Plugin Configuration
 
 ```
 [client]
@@ -43,21 +52,29 @@ port=3307
 
 ## ToDo
 
-* Replace print statements with logging library
-* Make everything more mariadb-ish
+* Always enable "debug" mode output when being run interactively and remove debug from the config.
+* Make everything more mariadb-ish...yup
 * Update to match modern collectd python api (if needed)
 * Add MariaDB extras:
   * Galera
-  * Columnstore
-  * Userstat
-  * Multi-source Replication
+  * Columnstore? Might need to be a seperate plugin as there are more external tools.
+  * Userstat?
+  * ~~Multi-source Replication~~
   * Disks plugin
   * Computed metrics like status.reads, status.writes
-* Example outputs
+  * Link to MariaDB's QRT docs
+* Example outputs of the rrdtool data
+
+## FAQ
+
+Q: Why use this?
+A: Good question. 
+
+
 
 ## Metrics
 
-### MySQL Status
+### MariaDB Global Status
 
     status.Com_*
     status.Handler_*
@@ -172,15 +189,13 @@ port=3307
     status.Uptime
 
 
-The following are determined programatically:
+### Computed Metrics
 
     status.Innodb_unpurged_txns = Innodb_max_trx_id - Innodb_purge_trx_id
     status.Innodb_uncheckpointed_bytes = Innodb_lsn_current - Innodb_lsn_last_checkpoint
     status.Innodb_unflushed_log = Innodb_lsn_current - Innodb_lsn_flushed
 
-### MariaDB Variables
-
-Collected from `SHOW GLOBAL VARIABLES`:
+### MariaDB Global Variables
 
     variables.binlog_stmt_cache_size
     variables.innodb_additional_mem_pool_size
@@ -206,26 +221,15 @@ Collected from `SHOW GLOBAL VARIABLES`:
     variables.thread_concurrency
     variables.tmp_table_size
 
-### MySQL Processes
+### MariaDB Processlist
 
-Count of MySQL processes from `SHOW PROCESSLIST` grouped by state:
+These metrics are a summary of all running processes from `information_schema.processlist`.
+Nowardays there are so many states that could be recorded, instead these should be used as a guideline as to when a spike in performance degradation occured.
 
-    state.closing_tables
-    state.copying_to_tmp_table
-    state.end
-    state.freeing_items
-    state.init
-    state.locked
-    state.login
-    state.none
-    state.preparing
-    state.reading_from_net
-    state.sending_data
-    state.sorting_result
-    state.statistics
-    state.updating
-    state.writing_to_net
-    state.other - All other states
+	processlist.count
+ 	processlist.time
+  	processlist.max_memory_used
+   	processlist.tmp_space_used
 
 ### InnoDB Status
 
@@ -328,6 +332,8 @@ If the metric is from a named connection (multi-source replication), the connect
 
     slave.Seconds_Behind_Master
     slave.from_db5.Seconds_Bheind_Master
+
+    ...
 
 ### Query Response Times
 
