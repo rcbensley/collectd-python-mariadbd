@@ -2,14 +2,13 @@
 # CollectD MariaDB plugin, designed for MariaDB 10.6+
 # Forked from the CollectD MySQL Python plugin.
 # Requires the mariadb python driver and a valid MariaDB client config.
-# Debug example: ./mariadbd.py -d -c ~/.my.cnf -g client
+# test the script: ./mariadbd.py -f ~/.my.cnf -g client
 #
 # Configuration:
 #  Import mariadbd
 #  <Module mariadbd>
 #  	Option_File /etc/collectd/collectd.conf.d/mariadbd.conf
 #   Option_Group client
-#   debug false (optional, to enable debugging)
 #  </Module>
 #
 # License: MIT (http://www.opensource.org/licenses/mit-license.php)
@@ -23,7 +22,6 @@ COLLECTD_ENABLED = True
 try:
     import collectd
 except ImportError:
-    # Interactive mode for debugging
     COLLECTD_ENABLED = False
 import mariadb
 
@@ -35,7 +33,6 @@ OPTION_FILE_GROUP = "client"
 MARIADB_CONFIG = {
     OPTION_FILE: COLLECTD_OPTION_FILE_PATH,
     OPTION_GROUP: OPTION_FILE_GROUP,
-    "debug": False,
 }
 
 MARIADB_STATUS_VARS = {
@@ -538,7 +535,7 @@ def dispatch_value(prefix, key, value, metric_type, type_instance=None):
     if not type_instance:
         type_instance = key
 
-    msg = f"mariadbd plugin: Sending value: {prefix}/{metric_type}_instance={value}"
+    msg = f"mariadbd plugin: Sending value: {prefix}/{type_instance}_instance={value}"
 
     if COLLECTD_ENABLED:
         collectd.info(msg)
@@ -565,8 +562,6 @@ def configure_callback(conf):
     for node in conf.children:
         if node.key in MARIADB_CONFIG:
             MARIADB_CONFIG[node.key] = node.values[0]
-
-    MARIADB_CONFIG["debug"] = bool(MARIADB_CONFIG["debug"])
 
 
 def read_callback():
@@ -644,6 +639,5 @@ if __name__ == "__main__" and not COLLECTD_ENABLED:
     args = parser.parse_args()
     MARIADB_CONFIG[OPTION_FILE] = os.path.expanduser(args.option_file)
     MARIADB_CONFIG[OPTION_GROUP] = args.option_group
-    MARIADB_CONFIG["debug"] = True
     print(MARIADB_CONFIG)
     read_callback()
