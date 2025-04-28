@@ -574,7 +574,7 @@ def configure_callback(conf):
 
 def read_callback():
     global MARIADB_STATUS_VARS
-    
+
     with get_mariadb_conn() as conn:
 
         mysql_status = fetch_mariadb_status(conn)
@@ -623,7 +623,9 @@ def read_callback():
         for key in MYSQL_INNODB_STATUS_VARS:
             if key not in innodb_status:
                 continue
-            dispatch_value("innodb", key, innodb_status[key], MYSQL_INNODB_STATUS_VARS[key])
+            dispatch_value(
+                "innodb", key, innodb_status[key], MYSQL_INNODB_STATUS_VARS[key]
+            )
 
 
 if COLLECTD_ENABLED:
