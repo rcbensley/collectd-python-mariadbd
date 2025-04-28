@@ -215,27 +215,6 @@ MYSQL_VARS = [
     "tmp_table_size",
 ]
 
-MYSQL_PROCESS_STATES = {
-    "closing_tables": 0,
-    "copying_to_tmp_table": 0,
-    "end": 0,
-    "freeing_items": 0,
-    "init": 0,
-    "locked": 0,
-    "login": 0,
-    "none": 0,
-    "other": 0,
-    "preparing": 0,
-    "reading_from_net": 0,
-    "sending_data": 0,
-    "sorting_result": 0,
-    "statistics": 0,
-    "updating": 0,
-    "writing_to_net": 0,
-    "creating_table": 0,
-    "opening_tables": 0,
-}
-
 MYSQL_INNODB_STATUS_VARS = {
     "active_transactions": "gauge",
     "current_transactions": "gauge",
@@ -370,38 +349,42 @@ def fetch_mariadb_status(conn):
     return status
 
 
-def fetch_mariadb_master_stats(conn):
+def fetch_mariadb_binlog_stats(conn):
     try:
         result = mysql_query(conn, "SHOW BINARY LOGS")
     except mariadb.OperationalError:
         return {}
 
+    bl_used = "binary_log_space_used"
+    bl_count = "binary_log_count"
+
     stats = {
-        "binary_log_space": 0,
-        "binary_log_count": 0,
+        bl_used: 0,
+        bl_count: 0,
     }
 
     for row in result.fetchall():
         if "File_size" not in row:
             continue
         if row["File_size"] > 0:
-            stats["binary_log_space"] += int(row["File_size"])
+            stats[bl_used] += int(row["File_size"])
 
-        stats["binary_log_count"] += 1
+        stats[bl_count] += 1
 
     return stats
 
 
 def fetch_mariadb_slave_stats(conn):
-    result = mysql_query(conn, "SHOW ALL SLAVES STATUS")
+    result = mysql_query(conn, "SHOW ALL REPLICAS STATUS")
     slave_rows = result.fetchall()
     if not slave_rows:
         return {}
 
+    repl_conn_name = "Connection_name"
     status = {}
     for row in slave_rows:
-        if row["Connection_name"]:
-            connection_name = f"{row['Connection_name']}_"
+        if row[repl_conn_name]:
+            connection_name = f"{row[repl_conn_name]}_"
         else:
             connection_name = ""
 
@@ -438,20 +421,35 @@ def fetch_mariadb_slave_stats(conn):
     return status
 
 
-def fetch_mariadb_process_states(conn):
-    global MYSQL_PROCESS_STATES
-    result = mysql_query(conn, "SHOW PROCESSLIST")
-    states = MYSQL_PROCESS_STATES.copy()
-    for row in result.fetchall():
-        state = row["State"]
-        if state == "" or state == None:
-            state = "none"
-        state = re.sub(r"^(Table lock|Waiting for .*lock)$", "Locked", state)
-        state = state.lower().replace(" ", "_")
-        if state not in states:
-            state = "other"
-        states[state] += 1
+def fetch_mariadb_processlist_summary(conn):
+    sql = (
+        "select count(*) as count"
+        ",sum(time) as time"
+        ",sum(max_memory_used) as max_memory_used"
+        ",sum(tmp_space_used) as tmp_space_used"
+        " from information_schema.processlist"
+    )
 
+    pl_c = "count"
+    pl_t = "time"
+    pl_mem = "max_memory_used"
+    pl_tmp = "tmp_space_used"
+
+    states = {
+        pl_c: 0,
+        pl_t: 0,
+        pl_mem: 0,
+        pl_tmp: 0,
+    }
+    result = mysql_query(conn, sql)
+    pl = result.fetchall()
+    if not pl:
+        return states
+    for row in pl:
+        states[pl_c] += row[pl_c]
+        states[pl_t] += row[pl_t]
+        states[pl_mem] += row[pl_mem]
+        states[pl_tmp] += row[pl_tmp]
     return states
 
 
@@ -459,9 +457,10 @@ def fetch_mariadb_variables(conn):
     global MYSQL_VARS
     result = mysql_query(conn, "SHOW GLOBAL VARIABLES")
     variables = {}
+    var_name = "Variable_name"
     for row in result.fetchall():
-        if row["Variable_name"] in MYSQL_VARS:
-            variables[row["Variable_name"]] = row["Value"]
+        if row[var_name] in MYSQL_VARS:
+            variables[row[var_name]] = row["Value"]
 
     return variables
 
@@ -598,17 +597,17 @@ def read_callback():
         for key in mysql_variables:
             dispatch_value("variables", key, mysql_variables[key], "gauge")
 
-        mysql_master_status = fetch_mariadb_master_stats(conn)
-        for key in mysql_master_status:
-            dispatch_value("master", key, mysql_master_status[key], "gauge")
+        mariadb_binlog_status = fetch_mariadb_binlog_stats(conn)
+        for key in mariadb_binlog_status:
+            dispatch_value("binlog", key, mariadb_binlog_status[key], "gauge")
 
-        mysql_states = fetch_mariadb_process_states(conn)
-        for key in mysql_states:
-            dispatch_value("state", key, mysql_states[key], "gauge")
+        processlist = fetch_mariadb_processlist_summary(conn)
+        for k, v in processlist.items():
+            dispatch_value("processlist", k, v, "gauge")
 
         slave_status = fetch_mariadb_slave_stats(conn)
         for k, v in slave_status.items():
-            dispatch_value("slave", k, v, "gauge")
+            dispatch_value("replica", k, v, "gauge")
 
         response_times = fetch_mariadb_query_response_time(conn)
         for key in response_times:
