@@ -465,7 +465,7 @@ def fetch_mariadb_variables(conn):
     return variables
 
 
-def fetch_mariadb_response_times(conn):
+def fetch_mariadb_query_response_time(conn):
     response_times = {}
     try:
         result = mysql_query(
@@ -480,20 +480,12 @@ def fetch_mariadb_response_times(conn):
     except mariadb.OperationalError:
         return {}
 
-    # enumerate this later
-    for i in range(1, 14):
-        row = result.fetchone()
-
-        # fill in missing rows with zeros
-        if not row:
-            row = {"count": 0, "total": 0}
-
-        row = {key.lower(): val for key, val in row.items()}
+    for i, row in enumerate(result.fetchall(), start=1):
 
         response_times[i] = {
-            "time": float(row["time"]),
-            "count": int(row["count"]),
-            "total": round(float(row["total"]) * 1000000, 0),
+            "time": float(row["TIME"]),
+            "count": int(row["COUNT"]),
+            "total": round(float(row["TOTAL"]) * 1000000, 0),
         }
 
     return response_times
@@ -581,56 +573,58 @@ def configure_callback(conf):
 
 def read_callback():
     global MARIADB_STATUS_VARS
-    conn = get_mariadb_conn()
 
-    mysql_status = fetch_mariadb_status(conn)
-    for key in mysql_status:
-        if mysql_status[key] == "":
-            mysql_status[key] = 0
+    with get_mariadb_conn() as conn:
 
-        # collect anything beginning with Com_/Handler_ as these change
-        # regularly between  mysql versions and this is easier than a fixed
-        # list
-        if key.split("_", 2)[0] in ["Com", "Handler"]:
-            ds_type = "counter"
-        elif key in MARIADB_STATUS_VARS:
-            ds_type = MARIADB_STATUS_VARS[key]
-        else:
-            continue
+        mysql_status = fetch_mariadb_status(conn)
+        for key in mysql_status:
+            if mysql_status[key] == "":
+                mysql_status[key] = 0
 
-        dispatch_value("status", key, mysql_status[key], ds_type)
+            # collect anything beginning with Com_/Handler_ as these change
+            # regularly between  mysql versions and this is easier than a fixed
+            # list
+            if key.split("_", 2)[0] in ["Com", "Handler"]:
+                ds_type = "counter"
+            elif key in MARIADB_STATUS_VARS:
+                ds_type = MARIADB_STATUS_VARS[key]
+            else:
+                continue
 
-    mysql_variables = fetch_mariadb_variables(conn)
-    for key in mysql_variables:
-        dispatch_value("variables", key, mysql_variables[key], "gauge")
+            dispatch_value("status", key, mysql_status[key], ds_type)
 
-    mariadb_binlog_status = fetch_mariadb_binlog_stats(conn)
-    for key in mariadb_binlog_status:
-        dispatch_value("binlog", key, mariadb_binlog_status[key], "gauge")
+        mysql_variables = fetch_mariadb_variables(conn)
+        for key in mysql_variables:
+            dispatch_value("variables", key, mysql_variables[key], "gauge")
 
-    processlist = fetch_mariadb_processlist_summary(conn)
-    for k, v in processlist.items():
-        dispatch_value("processlist", k, v, "gauge")
+        mariadb_binlog_status = fetch_mariadb_binlog_stats(conn)
+        for key in mariadb_binlog_status:
+            dispatch_value("binlog", key, mariadb_binlog_status[key], "gauge")
 
-    slave_status = fetch_mariadb_slave_stats(conn)
-    for k, v in slave_status.items():
-        dispatch_value("replica", k, v, "gauge")
+        processlist = fetch_mariadb_processlist_summary(conn)
+        for k, v in processlist.items():
+            dispatch_value("processlist", k, v, "gauge")
 
-    response_times = fetch_mariadb_response_times(conn)
-    for key in response_times:
-        dispatch_value(
-            "response_time_total", str(key), response_times[key]["total"], "counter"
-        )
-        dispatch_value(
-            "response_time_count", str(key), response_times[key]["count"], "counter"
-        )
+        slave_status = fetch_mariadb_slave_stats(conn)
+        for k, v in slave_status.items():
+            dispatch_value("replica", k, v, "gauge")
 
-    innodb_status = fetch_innodb_stats(conn)
-    for key in MYSQL_INNODB_STATUS_VARS:
-        if key not in innodb_status:
-            continue
-        dispatch_value("innodb", key, innodb_status[key], MYSQL_INNODB_STATUS_VARS[key])
-    conn.close()
+        response_times = fetch_mariadb_query_response_time(conn)
+        for key in response_times:
+            dispatch_value(
+                "response_time_total", str(key), response_times[key]["total"], "counter"
+            )
+            dispatch_value(
+                "response_time_count", str(key), response_times[key]["count"], "counter"
+            )
+
+        innodb_status = fetch_innodb_stats(conn)
+        for key in MYSQL_INNODB_STATUS_VARS:
+            if key not in innodb_status:
+                continue
+            dispatch_value(
+                "innodb", key, innodb_status[key], MYSQL_INNODB_STATUS_VARS[key]
+            )
 
 
 if COLLECTD_ENABLED:
