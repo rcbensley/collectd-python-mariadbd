@@ -574,56 +574,56 @@ def configure_callback(conf):
 
 def read_callback():
     global MARIADB_STATUS_VARS
-    conn = get_mariadb_conn()
+    
+    with get_mariadb_conn() as conn:
 
-    mysql_status = fetch_mariadb_status(conn)
-    for key in mysql_status:
-        if mysql_status[key] == "":
-            mysql_status[key] = 0
+        mysql_status = fetch_mariadb_status(conn)
+        for key in mysql_status:
+            if mysql_status[key] == "":
+                mysql_status[key] = 0
 
-        # collect anything beginning with Com_/Handler_ as these change
-        # regularly between  mysql versions and this is easier than a fixed
-        # list
-        if key.split("_", 2)[0] in ["Com", "Handler"]:
-            ds_type = "counter"
-        elif key in MARIADB_STATUS_VARS:
-            ds_type = MARIADB_STATUS_VARS[key]
-        else:
-            continue
+            # collect anything beginning with Com_/Handler_ as these change
+            # regularly between  mysql versions and this is easier than a fixed
+            # list
+            if key.split("_", 2)[0] in ["Com", "Handler"]:
+                ds_type = "counter"
+            elif key in MARIADB_STATUS_VARS:
+                ds_type = MARIADB_STATUS_VARS[key]
+            else:
+                continue
 
-        dispatch_value("status", key, mysql_status[key], ds_type)
+            dispatch_value("status", key, mysql_status[key], ds_type)
 
-    mysql_variables = fetch_mariadb_variables(conn)
-    for key in mysql_variables:
-        dispatch_value("variables", key, mysql_variables[key], "gauge")
+        mysql_variables = fetch_mariadb_variables(conn)
+        for key in mysql_variables:
+            dispatch_value("variables", key, mysql_variables[key], "gauge")
 
-    mysql_master_status = fetch_mariadb_master_stats(conn)
-    for key in mysql_master_status:
-        dispatch_value("master", key, mysql_master_status[key], "gauge")
+        mysql_master_status = fetch_mariadb_master_stats(conn)
+        for key in mysql_master_status:
+            dispatch_value("master", key, mysql_master_status[key], "gauge")
 
-    mysql_states = fetch_mariadb_process_states(conn)
-    for key in mysql_states:
-        dispatch_value("state", key, mysql_states[key], "gauge")
+        mysql_states = fetch_mariadb_process_states(conn)
+        for key in mysql_states:
+            dispatch_value("state", key, mysql_states[key], "gauge")
 
-    slave_status = fetch_mariadb_slave_stats(conn)
-    for k, v in slave_status.items():
-        dispatch_value("slave", k, v, "gauge")
+        slave_status = fetch_mariadb_slave_stats(conn)
+        for k, v in slave_status.items():
+            dispatch_value("slave", k, v, "gauge")
 
-    response_times = fetch_mariadb_query_response_time(conn)
-    for key in response_times:
-        dispatch_value(
-            "response_time_total", str(key), response_times[key]["total"], "counter"
-        )
-        dispatch_value(
-            "response_time_count", str(key), response_times[key]["count"], "counter"
-        )
+        response_times = fetch_mariadb_query_response_time(conn)
+        for key in response_times:
+            dispatch_value(
+                "response_time_total", str(key), response_times[key]["total"], "counter"
+            )
+            dispatch_value(
+                "response_time_count", str(key), response_times[key]["count"], "counter"
+            )
 
-    innodb_status = fetch_innodb_stats(conn)
-    for key in MYSQL_INNODB_STATUS_VARS:
-        if key not in innodb_status:
-            continue
-        dispatch_value("innodb", key, innodb_status[key], MYSQL_INNODB_STATUS_VARS[key])
-    conn.close()
+        innodb_status = fetch_innodb_stats(conn)
+        for key in MYSQL_INNODB_STATUS_VARS:
+            if key not in innodb_status:
+                continue
+            dispatch_value("innodb", key, innodb_status[key], MYSQL_INNODB_STATUS_VARS[key])
 
 
 if COLLECTD_ENABLED:
