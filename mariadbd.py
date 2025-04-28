@@ -466,7 +466,7 @@ def fetch_mariadb_variables(conn):
     return variables
 
 
-def fetch_mariadb_response_times(conn):
+def fetch_mariadb_query_response_time(conn):
     response_times = {}
     try:
         result = mysql_query(
@@ -481,20 +481,12 @@ def fetch_mariadb_response_times(conn):
     except mariadb.OperationalError:
         return {}
 
-    # enumerate this later
-    for i in range(1, 14):
-        row = result.fetchone()
-
-        # fill in missing rows with zeros
-        if not row:
-            row = {"count": 0, "total": 0}
-
-        row = {key.lower(): val for key, val in row.items()}
+    for i, row in enumerate(result.fetchall(), start=1):
 
         response_times[i] = {
-            "time": float(row["time"]),
-            "count": int(row["count"]),
-            "total": round(float(row["total"]) * 1000000, 0),
+            "time": float(row["TIME"]),
+            "count": int(row["COUNT"]),
+            "total": round(float(row["TOTAL"]) * 1000000, 0),
         }
 
     return response_times
@@ -617,7 +609,7 @@ def read_callback():
     for k, v in slave_status.items():
         dispatch_value("slave", k, v, "gauge")
 
-    response_times = fetch_mariadb_response_times(conn)
+    response_times = fetch_mariadb_query_response_time(conn)
     for key in response_times:
         dispatch_value(
             "response_time_total", str(key), response_times[key]["total"], "counter"
