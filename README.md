@@ -63,6 +63,7 @@ port=3307
   * Disks plugin
   * Computed metrics like status.reads, status.writes
   * Link to MariaDB's QRT docs
+* Add all the slave/replca metrics to this doc
 * Example outputs of the rrdtool data
 
 ## FAQ
@@ -339,9 +340,8 @@ If the metric is from a named connection (multi-source replication), the connect
 
 ### Query Response Times
 
-For versions of MySQL with support for it and where enabled, `INFORMATION_SCHEMA.QUERY_RESPONSE_TIME` will be queried for metrics to generate a histogram of query response times.
+Support for the [Query Reponse Time plugin](https://mariadb.com/kb/en/query-response-time-plugin/) is included. All rows from the histogram are read and stored. For example:
 
-[Additional information on response time histograms in Percona Server](http://www.percona.com/blog/2010/07/11/query-response-time-histogram-new-feature-in-percona-server/)
 
     response_time_total.1
     response_time_count.1
