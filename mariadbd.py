@@ -534,19 +534,17 @@ def fetch_innodb_stats(conn):
     return stats
 
 
-def log_debug(msg):
-    if COLLECTD_ENABLED:
-        collectd.info("mariadbd plugin: %s" % msg)
-    else:
-        print("mariadbd plugin: %s" % msg)
-
-
-def dispatch_value(prefix, key, value, type, type_instance=None):
+def dispatch_value(prefix, key, value, metric_type, type_instance=None):
     if not type_instance:
         type_instance = key
 
-    if MARIADB_CONFIG["debug"]:
-        log_debug("Sending value: %s/%s=%s" % (prefix, type_instance, value))
+    msg = f"mariadbd plugin: Sending value: {prefix}/{metric_type}_instance={value}"
+
+    if COLLECTD_ENABLED:
+        collectd.info(msg)
+    if not COLLECTD_ENABLED and __name__ == "__main__":
+        print(msg)
+
     if value is None:
         return
     try:
@@ -556,7 +554,7 @@ def dispatch_value(prefix, key, value, type, type_instance=None):
 
     if COLLECTD_ENABLED:
         val = collectd.Values(plugin="mariadbd", plugin_instance=prefix)
-        val.type = type
+        val.type = metric_type
         val.type_instance = type_instance
         val.values = [value]
         val.dispatch()
