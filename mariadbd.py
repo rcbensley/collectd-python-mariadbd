@@ -63,23 +63,11 @@ MARIADB_STATUS_VARS = {
     "Innodb_data_written": "counter",
     "Innodb_deadlocks": "counter",
     "Innodb_history_list_length": "gauge",
-    "Innodb_ibuf_free_list": "gauge",
-    "Innodb_ibuf_merged_delete_marks": "counter",
-    "Innodb_ibuf_merged_deletes": "counter",
-    "Innodb_ibuf_merged_inserts": "counter",
-    "Innodb_ibuf_merges": "counter",
-    "Innodb_ibuf_segment_size": "gauge",
-    "Innodb_ibuf_size": "gauge",
     "Innodb_lsn_current": "counter",
     "Innodb_lsn_flushed": "counter",
     "Innodb_max_trx_id": "counter",
     "Innodb_mem_adaptive_hash": "gauge",
     "Innodb_mem_dictionary": "gauge",
-    "Innodb_mem_total": "gauge",
-    "Innodb_mutex_os_waits": "counter",
-    "Innodb_mutex_spin_rounds": "counter",
-    "Innodb_mutex_spin_waits": "counter",
-    "Innodb_os_log_pending_fsyncs": "gauge",
     "Innodb_pages_created": "counter",
     "Innodb_pages_read": "counter",
     "Innodb_pages_written": "counter",
@@ -87,19 +75,6 @@ MARIADB_STATUS_VARS = {
     "Innodb_row_lock_time_avg": "gauge",
     "Innodb_row_lock_time_max": "gauge",
     "Innodb_row_lock_waits": "counter",
-    "Innodb_rows_deleted": "counter",
-    "Innodb_rows_inserted": "counter",
-    "Innodb_rows_read": "counter",
-    "Innodb_rows_updated": "counter",
-    "Innodb_s_lock_os_waits": "counter",
-    "Innodb_s_lock_spin_rounds": "counter",
-    "Innodb_s_lock_spin_waits": "counter",
-    "Innodb_uncheckpointed_bytes": "gauge",
-    "Innodb_unflushed_log": "gauge",
-    "Innodb_unpurged_txns": "gauge",
-    "Innodb_x_lock_os_waits": "counter",
-    "Innodb_x_lock_spin_rounds": "counter",
-    "Innodb_x_lock_spin_waits": "counter",
     "Key_blocks_not_flushed": "gauge",
     "Key_blocks_unused": "gauge",
     "Key_blocks_used": "gauge",
@@ -187,9 +162,7 @@ MARIADB_STATUS_VARS = {
 
 MYSQL_VARS = [
     "binlog_stmt_cache_size",
-    "innodb_additional_mem_pool_size",
     "innodb_buffer_pool_size",
-    "innodb_concurrency_tickets",
     "innodb_io_capacity",
     "innodb_log_buffer_size",
     "innodb_log_file_size",
@@ -202,12 +175,10 @@ MYSQL_VARS = [
     "query_cache_size",
     "query_cache_size",
     "read_buffer_size",
-    "table_cache",
     "table_definition_cache",
     "table_open_cache",
     "thread_cache_size",
     "thread_cache_size",
-    "thread_concurrency",
     "tmp_table_size",
 ]
 
@@ -610,6 +581,9 @@ def read_callback():
     with get_mariadb_conn() as conn:
 
         mysql_status = fetch_mariadb_status(conn)
+        for k in MARIADB_STATUS_VARS:
+            if k not in mysql_status:
+                print(f"UNKNOWN\t{k}")
         for key in mysql_status:
             if mysql_status[key] == "":
                 mysql_status[key] = 0
@@ -627,6 +601,9 @@ def read_callback():
             dispatch_value("status", key, mysql_status[key], ds_type)
 
         mysql_variables = fetch_mariadb_variables(conn)
+        for k in MYSQL_VARS:
+            if k not in mysql_variables:
+                print(f"UNKNOWN\t{k}")
         for key in mysql_variables:
             dispatch_value("variables", key, mysql_variables[key], "gauge")
 
