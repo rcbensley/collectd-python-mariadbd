@@ -7,8 +7,8 @@
 # Configuration:
 #  Import mariadbd
 #  <Module mariadbd>
-#  	Option_File /etc/collectd/collectd.conf.d/mariadbd.conf
-#   Option_Group client
+#  	default_file /etc/collectd/collectd.conf.d/mariadbd.conf
+#   default_group client
 #  </Module>
 #
 # License: MIT (http://www.opensource.org/licenses/mit-license.php)
@@ -26,14 +26,12 @@ except ImportError:
 import mariadb
 
 plugin = mariadbd = "mariadbd"
-OPTION_FILE = "Option_File"
-OPTION_GROUP = "Option_Group"
 DEFAULT_FILE = "/usr/lib/collectd/python/mariadbd.conf"
 DEFAULT_GROUP = "client"
 
 MARIADB_CONFIG = {
-    OPTION_FILE: DEFAULT_FILE,
-    OPTION_GROUP: DEFAULT_GROUP,
+    "default_file": DEFAULT_FILE,
+    "default_group": DEFAULT_GROUP,
 }
 
 MARIADB_STATUS_VARS = {
@@ -305,10 +303,7 @@ MYSQL_INNODB_STATUS_MATCHES = {
 
 
 def get_mariadb_conn():
-    return mariadb.connect(
-        default_file=MARIADB_CONFIG[OPTION_FILE],
-        default_group=MARIADB_CONFIG[OPTION_GROUP],
-    )
+    return mariadb.connect(**MARIADB_CONFIG)
 
 
 def mysql_query(conn, query):
@@ -550,26 +545,26 @@ def parse_global(v):
 
     v = str(v).lower()
     if v in {
-        "yes": True,
-        "connected": True,
-        "primary": True,
-        "on": True,
-        "enabled": True,
-        "y": True,
-        "true": True,
+        "yes": _,
+        "connected": _,
+        "primary": _,
+        "on": _,
+        "enabled": _,
+        "y": _,
+        "true": _,
     }:
         return 1
 
     if v in {
-        "no": True,
-        "disconnected": True,
-        "secondary": True,
-        "off": True,
-        "disabled": True,
-        "connecting": True,
-        "non-primary": True,
-        "n": True,
-        "false": True,
+        "no": _,
+        "disconnected": _,
+        "secondary": _,
+        "off": _,
+        "disabled": _,
+        "connecting": _,
+        "non-primary": _,
+        "n": _,
+        "false": _,
     }:
         return 0
 
@@ -673,16 +668,16 @@ if __name__ == "__main__" and not COLLECTD_ENABLED:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "-f",
-        "--option-file",
+        "--default-file",
         default="~/.my.cnf",
     )
     parser.add_argument(
         "-g",
-        "--option-group",
+        "--default-group",
         default="client",
     )
     args = parser.parse_args()
-    MARIADB_CONFIG[OPTION_FILE] = os.path.expanduser(args.option_file)
-    MARIADB_CONFIG[OPTION_GROUP] = args.option_group
+    MARIADB_CONFIG["default_file"] = os.path.expanduser(args.default_file)
+    MARIADB_CONFIG["default_group"] = args.default_group
     print(MARIADB_CONFIG)
     read_callback()

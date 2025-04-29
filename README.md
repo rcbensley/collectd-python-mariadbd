@@ -35,7 +35,8 @@ Usually located at `/etc/collectd/collectd.conf`
     ModulePath "/usr/lib/collectd/python"
     Import "mariadbd"
     <Module mariadbd>
-        Option_File "/usr/lib/collectd/python/mariadbd.conf"
+        default_file "/usr/lib/collectd/python/mariadbd.conf"
+        default_group client
     </Module>
 </Plugin>
 ```
