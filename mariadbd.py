@@ -2,14 +2,13 @@
 # CollectD MariaDB plugin, designed for MariaDB 10.6+
 # Forked from the CollectD MySQL Python plugin.
 # Requires the mariadb python driver and a valid MariaDB client config.
-# Debug example: ./mariadbd.py -d -c ~/.my.cnf -g client
+# test the script: ./mariadbd.py -f ~/.my.cnf -g client
 #
 # Configuration:
 #  Import mariadbd
 #  <Module mariadbd>
-#  	Option_File /etc/collectd/collectd.conf.d/mariadbd.conf
-#   Option_Group client
-#   debug false (optional, to enable debugging)
+#  	default_file /etc/collectd/collectd.conf.d/mariadbd.conf
+#   default_group client
 #  </Module>
 #
 # License: MIT (http://www.opensource.org/licenses/mit-license.php)
@@ -23,19 +22,16 @@ COLLECTD_ENABLED = True
 try:
     import collectd
 except ImportError:
-    # Interactive mode for debugging
     COLLECTD_ENABLED = False
 import mariadb
 
-OPTION_FILE = "Option_File"
-OPTION_GROUP = "Option_Group"
-COLLECTD_OPTION_FILE_PATH = "/usr/lib/collectd/python/mariadbd.conf"
-OPTION_FILE_GROUP = "client"
+plugin = mariadbd = "mariadbd"
+DEFAULT_FILE = "/usr/lib/collectd/python/mariadbd.conf"
+DEFAULT_GROUP = "client"
 
 MARIADB_CONFIG = {
-    OPTION_FILE: COLLECTD_OPTION_FILE_PATH,
-    OPTION_GROUP: OPTION_FILE_GROUP,
-    "debug": False,
+    "default_file": DEFAULT_FILE,
+    "default_group": DEFAULT_GROUP,
 }
 
 MARIADB_STATUS_VARS = {
@@ -307,10 +303,7 @@ MYSQL_INNODB_STATUS_MATCHES = {
 
 
 def get_mariadb_conn():
-    return mariadb.connect(
-        default_file=MARIADB_CONFIG[OPTION_FILE],
-        default_group=MARIADB_CONFIG[OPTION_GROUP],
-    )
+    return mariadb.connect(**MARIADB_CONFIG)
 
 
 def mysql_query(conn, query):
@@ -534,29 +527,71 @@ def fetch_innodb_stats(conn):
     return stats
 
 
-def log_debug(msg):
-    if COLLECTD_ENABLED:
-        collectd.info("mariadbd plugin: %s" % msg)
-    else:
-        print("mariadbd plugin: %s" % msg)
+def parse_global(v):
+    if v is None:
+        return 0
+
+    if isinstance(v, int):
+        return v
+
+    try:
+        v = float(v)
+        return v
+    except (ValueError, TypeError):
+        return None
+
+    if v is True:
+        return 1
+
+    v = str(v).lower()
+    if v in {
+        "yes": _,
+        "connected": _,
+        "primary": _,
+        "on": _,
+        "enabled": _,
+        "y": _,
+        "true": _,
+    }:
+        return 1
+
+    if v in {
+        "no": _,
+        "disconnected": _,
+        "secondary": _,
+        "off": _,
+        "disabled": _,
+        "connecting": _,
+        "non-primary": _,
+        "n": _,
+        "false": _,
+    }:
+        return 0
+
+    return None
 
 
-def dispatch_value(prefix, key, value, type, type_instance=None):
+def dispatch_value(prefix, key, value, metric_type, type_instance=None):
     if not type_instance:
         type_instance = key
 
-    if MARIADB_CONFIG["debug"]:
-        log_debug("Sending value: %s/%s=%s" % (prefix, type_instance, value))
-    if value is None:
-        return
-    try:
-        value = int(value)
-    except ValueError:
-        value = float(value)
+    key = str(key).lower()
+
+    msg = f"{plugin}/{prefix}/{type_instance}={value}"
 
     if COLLECTD_ENABLED:
-        val = collectd.Values(plugin="mariadbd", plugin_instance=prefix)
-        val.type = type
+        collectd.info(msg)
+    if not COLLECTD_ENABLED and __name__ == "__main__":
+        print(msg)
+
+    value = parse_global(value)
+
+    if value is None:
+        return
+
+    if COLLECTD_ENABLED:
+        val = collectd.Values(plugin=plugin, plugin_instance=prefix)
+        val.type = metric_type
         val.type_instance = type_instance
         val.values = [value]
         val.dispatch()
@@ -567,8 +602,6 @@ def configure_callback(conf):
     for node in conf.children:
         if node.key in MARIADB_CONFIG:
             MARIADB_CONFIG[node.key] = node.values[0]
-
-    MARIADB_CONFIG["debug"] = bool(MARIADB_CONFIG["debug"])
 
 
 def read_callback():
@@ -635,17 +668,16 @@ if __name__ == "__main__" and not COLLECTD_ENABLED:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "-f",
-        "--option-file",
+        "--default-file",
         default="~/.my.cnf",
     )
     parser.add_argument(
         "-g",
-        "--option-group",
+        "--default-group",
         default="client",
     )
     args = parser.parse_args()
-    MARIADB_CONFIG[OPTION_FILE] = os.path.expanduser(args.option_file)
-    MARIADB_CONFIG[OPTION_GROUP] = args.option_group
-    MARIADB_CONFIG["debug"] = True
+    MARIADB_CONFIG["default_file"] = os.path.expanduser(args.default_file)
+    MARIADB_CONFIG["default_group"] = args.default_group
     print(MARIADB_CONFIG)
     read_callback()
