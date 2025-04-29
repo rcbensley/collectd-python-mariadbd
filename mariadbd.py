@@ -25,14 +25,15 @@ except ImportError:
     COLLECTD_ENABLED = False
 import mariadb
 
+plugin = mariadbd = "mariadbd"
 OPTION_FILE = "Option_File"
 OPTION_GROUP = "Option_Group"
-COLLECTD_OPTION_FILE_PATH = "/usr/lib/collectd/python/mariadbd.conf"
-OPTION_FILE_GROUP = "client"
+DEFAULT_FILE = "/usr/lib/collectd/python/mariadbd.conf"
+DEFAULT_GROUP = "client"
 
 MARIADB_CONFIG = {
-    OPTION_FILE: COLLECTD_OPTION_FILE_PATH,
-    OPTION_GROUP: OPTION_FILE_GROUP,
+    OPTION_FILE: DEFAULT_FILE,
+    OPTION_GROUP: DEFAULT_GROUP,
 }
 
 MARIADB_STATUS_VARS = {
@@ -531,26 +532,70 @@ def fetch_innodb_stats(conn):
     return stats
 
 
+def parse_global(v):
+    if v is None:
+        return 0
+
+    if isinstance(v, int):
+        return v
+
+    try:
+        v = float(v)
+        return v
+    except (ValueError, TypeError):
+        return None
+
+    if v is True:
+        return 1
+
+    v = str(v).lower()
+    if v in {
+        "yes": True,
+        "connected": True,
+        "primary": True,
+        "on": True,
+        "enabled": True,
+        "y": True,
+        "true": True,
+    }:
+        return 1
+
+    if v in {
+        "no": True,
+        "disconnected": True,
+        "secondary": True,
+        "off": True,
+        "disabled": True,
+        "connecting": True,
+        "non-primary": True,
+        "n": True,
+        "false": True,
+    }:
+        return 0
+
+    return None
+
+
 def dispatch_value(prefix, key, value, metric_type, type_instance=None):
     if not type_instance:
         type_instance = key
 
-    msg = f"mariadbd plugin: Sending value: {prefix}/{type_instance}_instance={value}"
+    key = str(key).lower()
+
+    msg = f"{plugin}/{prefix}/{type_instance}={value}"
 
     if COLLECTD_ENABLED:
         collectd.info(msg)
     if not COLLECTD_ENABLED and __name__ == "__main__":
         print(msg)
 
+    value = parse_global(value)
+
     if value is None:
         return
-    try:
-        value = int(value)
-    except ValueError:
-        value = float(value)
 
     if COLLECTD_ENABLED:
-        val = collectd.Values(plugin="mariadbd", plugin_instance=prefix)
+        val = collectd.Values(plugin=plugin, plugin_instance=prefix)
         val.type = metric_type
         val.type_instance = type_instance
         val.values = [value]
